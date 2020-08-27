@@ -32,28 +32,38 @@
 doc_comment::doctest!("../README.md");
 
 use async_executor::{Executor, LocalExecutor, Task};
-use once_cell::sync::Lazy;
 use futures_lite::future;
-use std::{cell::RefCell, future::Future, thread};
+use once_cell::sync::Lazy;
+use std::{
+    future::Future,
+    sync::atomic::{AtomicBool, Ordering},
+    thread,
+};
 
-static GLOBAL_EXECUTOR: Lazy<Executor> = Lazy::new(|| {
-    let num_cpus = std::env::var("ASYNC_GLOBAL_EXECUTOR_THREADS")
-        .ok()
-        .and_then(|threads| threads.parse().ok())
-        .unwrap_or_else(num_cpus::get)
-        .max(1);
-    for n in 1..=num_cpus {
-        thread::Builder::new()
-            .name(format!("async-global-executor-{}", n))
-            .spawn(|| run(future::pending::<()>()))
-            .expect("cannot spawn executor thread");
-    }
-    Executor::new()
-});
+static GLOBAL_EXECUTOR_INIT: AtomicBool = AtomicBool::new(false);
+static GLOBAL_EXECUTOR: Executor = Executor::new();
 
 thread_local! {
-    static LOCAL_EXECUTOR: RefCell<LocalExecutor> = RefCell::new(LocalExecutor::new());
+    static LOCAL_EXECUTOR: LocalExecutor = LocalExecutor::new();
 }
+
+fn init() {
+    if !GLOBAL_EXECUTOR_INIT.compare_and_swap(false, true, Ordering::AcqRel) {
+        let num_cpus = std::env::var("ASYNC_GLOBAL_EXECUTOR_THREADS")
+            .ok()
+            .and_then(|threads| threads.parse().ok())
+            .unwrap_or_else(num_cpus::get)
+            .max(1);
+        for n in 1..=num_cpus {
+            thread::Builder::new()
+                .name(format!("async-global-executor-{}", n))
+                .spawn(|| run(future::pending::<()>()))
+                .expect("cannot spawn executor thread");
+        }
+    }
+}
+
+static GLOBAL_EXECUTOR_THREADS: Lazy<()> = Lazy::new(init);
 
 /// Runs the global and the local executor on the current thread
 ///
@@ -70,8 +80,8 @@ thread_local! {
 /// });
 /// ```
 pub fn run<F: Future<Output = T> + 'static, T: 'static>(future: F) -> T {
+    Lazy::force(&GLOBAL_EXECUTOR_THREADS);
     LOCAL_EXECUTOR.with(|executor| {
-        let executor = executor.borrow();
         let local = executor.spawn(future);
         let global = GLOBAL_EXECUTOR.run(local);
         async_io::block_on(executor.run(global))
@@ -98,6 +108,7 @@ pub fn run<F: Future<Output = T> + 'static, T: 'static>(future: F) -> T {
 /// });
 /// ```
 pub fn spawn<F: Future<Output = T> + Send + 'static, T: Send + 'static>(future: F) -> Task<T> {
+    Lazy::force(&GLOBAL_EXECUTOR_THREADS);
     GLOBAL_EXECUTOR.spawn(future)
 }
 
@@ -124,6 +135,6 @@ pub fn spawn<F: Future<Output = T> + Send + 'static, T: Send + 'static>(future: 
 /// });
 /// ```
 pub fn spawn_local<F: Future<Output = T> + 'static, T: 'static>(future: F) -> Task<T> {
-    Lazy::force(&GLOBAL_EXECUTOR);
-    LOCAL_EXECUTOR.with(|executor| executor.borrow().spawn(future))
+    Lazy::force(&GLOBAL_EXECUTOR_THREADS);
+    LOCAL_EXECUTOR.with(|executor| executor.spawn(future))
 }
