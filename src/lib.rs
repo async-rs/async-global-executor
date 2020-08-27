@@ -42,7 +42,7 @@ static GLOBAL_EXECUTOR: Lazy<Executor> = Lazy::new(|| {
         .and_then(|threads| threads.parse().ok())
         .unwrap_or_else(num_cpus::get)
         .max(1);
-    for n in 1..num_cpus {
+    for n in 1..=num_cpus {
         thread::Builder::new()
             .name(format!("async-global-executor-{}", n))
             .spawn(|| run(future::pending::<()>()))
