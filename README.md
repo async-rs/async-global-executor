@@ -6,12 +6,12 @@
 [![Dependency Status](https://deps.rs/repo/github/Keruspe/async-global-executor/status.svg)](https://deps.rs/repo/github/Keruspe/async-global-executor)
 [![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A global executor built on top of async-executor and smol
+A global executor built on top of async-executor and async-io
 
 # Examples
 
 ```
-# use smol::future;
+# use futures_lite::future;
 
 // spawn a task on the multi-threaded executor
 let task1 = async_global_executor::spawn(async {

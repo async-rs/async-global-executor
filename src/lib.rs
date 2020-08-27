@@ -1,4 +1,4 @@
-//! A global executor built on top of async-executor and smol
+//! A global executor built on top of async-executor and async_io
 //!
 //! The global executor is lazily spawned on first use. It spawns as many threads
 //! as the number of cpus by default. You can override this using the
@@ -7,7 +7,7 @@
 //! # Examples
 //!
 //! ```
-//! # use smol::future;
+//! # use futures_lite::future;
 //!
 //! // spawn a task on the multi-threaded executor
 //! let task1 = async_global_executor::spawn(async {
@@ -33,7 +33,7 @@ doc_comment::doctest!("../README.md");
 
 use async_executor::{Executor, LocalExecutor, Task};
 use once_cell::sync::Lazy;
-use smol::future;
+use futures_lite::future;
 use std::{cell::RefCell, future::Future, thread};
 
 static GLOBAL_EXECUTOR: Lazy<Executor> = Lazy::new(|| {
@@ -57,7 +57,7 @@ thread_local! {
 
 /// Runs the global and the local executor on the current thread
 ///
-/// Note: this calls smol::block_on underneath.
+/// Note: this calls `async_io::block_on` underneath.
 ///
 /// # Examples
 ///
@@ -73,7 +73,7 @@ pub fn run<F: Future<Output = T> + Send + 'static, T: Send + 'static>(future: F)
     LOCAL_EXECUTOR.with(|executor| {
         let executor = executor.borrow();
         let global = GLOBAL_EXECUTOR.run(future);
-        smol::block_on(executor.run(global))
+        async_io::block_on(executor.run(global))
     })
 }
 
@@ -82,7 +82,7 @@ pub fn run<F: Future<Output = T> + Send + 'static, T: Send + 'static>(future: F)
 /// # Examples
 ///
 /// ```
-/// # use smol::future;
+/// # use futures_lite::future;
 ///
 /// let task1 = async_global_executor::spawn(async {
 ///     1 + 2
@@ -108,7 +108,7 @@ pub fn spawn<F: Future<Output = T> + Send + 'static, T: Send + 'static>(future: 
 /// # Examples
 ///
 /// ```
-/// # use smol::future;
+/// # use futures_lite::future;
 ///
 /// let task1 = async_global_executor::spawn_local(async {
 ///     1 + 2
