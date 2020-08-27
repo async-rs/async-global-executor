@@ -69,10 +69,11 @@ thread_local! {
 ///     assert_eq!(task.await, 3);
 /// });
 /// ```
-pub fn run<F: Future<Output = T> + Send + 'static, T: Send + 'static>(future: F) -> T {
+pub fn run<F: Future<Output = T> + 'static, T: 'static>(future: F) -> T {
     LOCAL_EXECUTOR.with(|executor| {
         let executor = executor.borrow();
-        let global = GLOBAL_EXECUTOR.run(future);
+        let local = executor.spawn(future);
+        let global = GLOBAL_EXECUTOR.run(local);
         async_io::block_on(executor.run(global))
     })
 }
