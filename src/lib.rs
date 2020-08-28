@@ -31,7 +31,7 @@
 #[cfg(doctest)]
 doc_comment::doctest!("../README.md");
 
-use async_executor::{Executor, LocalExecutor, Task};
+use async_executor::{Executor, LocalExecutor};
 use futures_lite::future;
 use once_cell::sync::Lazy;
 use std::{
@@ -39,6 +39,8 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
     thread,
 };
+
+pub use async_executor::Task;
 
 static GLOBAL_EXECUTOR_INIT: AtomicBool = AtomicBool::new(false);
 static GLOBAL_EXECUTOR_THREADS: Lazy<()> = Lazy::new(init);
