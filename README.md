@@ -24,7 +24,7 @@ let task2 = async_global_executor::spawn_local(async {
 let task = future::zip(task1, task2);
 
 // run the executor
-async_global_executor::run(async {
+async_global_executor::block_on(async {
     assert_eq!(task.await, (3, 7));
 });
 ```

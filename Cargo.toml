@@ -13,6 +13,7 @@ categories = ["asynchronous", "concurrency"]
 readme = "README.md"
 
 [dependencies]
+async-channel = "^1.4"
 async-executor = "^0.2"
 async-io = "^0.2"
 futures-lite = "^1.0"

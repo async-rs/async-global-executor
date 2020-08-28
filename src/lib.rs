@@ -20,7 +20,7 @@
 //! let task = future::zip(task1, task2);
 //!
 //! // run the executor
-//! async_global_executor::run(async {
+//! async_global_executor::block_on(async {
 //!     assert_eq!(task.await, (3, 7));
 //! });
 //! ```
@@ -108,7 +108,7 @@ pub fn init_with_config(config: GlobalExecutorConfig) {
                         .unwrap_or("async-global-executor-"),
                     n
                 ))
-                .spawn(|| run(future::pending::<()>()))
+                .spawn(|| block_on(future::pending::<()>()))
                 .expect("cannot spawn executor thread");
         }
     }
@@ -137,16 +137,28 @@ pub fn init() {
 /// let task = async_global_executor::spawn(async {
 ///     1 + 2
 /// });
-/// async_global_executor::run(async {
+/// async_global_executor::block_on(async {
 ///     assert_eq!(task.await, 3);
 /// });
 /// ```
-pub fn run<F: Future<Output = T> + 'static, T: 'static>(future: F) -> T {
+pub fn block_on<F: Future<Output = T>, T>(future: F) -> T {
     Lazy::force(&GLOBAL_EXECUTOR_THREADS);
     LOCAL_EXECUTOR.with(|executor| {
-        let local = executor.spawn(future);
-        let global = GLOBAL_EXECUTOR.run(local);
-        async_io::block_on(executor.run(global))
+        let (s, r) = async_channel::bounded::<()>(1);
+        let future = async move {
+            let _s = s;
+            future.await
+        };
+        let global = {
+            let r = r.clone();
+            GLOBAL_EXECUTOR.run(async move {
+                r.recv().await
+            })
+        };
+        let local = executor.run(r.recv());
+        let executors = future::zip(global, local);
+        let all = future::zip(executors, future);
+        async_io::block_on(all).1
     })
 }
 
@@ -165,7 +177,7 @@ pub fn run<F: Future<Output = T> + 'static, T: 'static>(future: F) -> T {
 /// });
 /// let task = future::zip(task1, task2);
 ///
-/// async_global_executor::run(async {
+/// async_global_executor::block_on(async {
 ///     assert_eq!(task.await, (3, 7));
 /// });
 /// ```
@@ -192,7 +204,7 @@ pub fn spawn<F: Future<Output = T> + Send + 'static, T: Send + 'static>(future: 
 /// });
 /// let task = future::zip(task1, task2);
 ///
-/// async_global_executor::run(async {
+/// async_global_executor::block_on(async {
 ///     assert_eq!(task.await, (3, 7));
 /// });
 /// ```
