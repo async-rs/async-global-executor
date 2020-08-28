@@ -118,7 +118,9 @@ pub fn init_with_config(config: GlobalExecutorConfig) {
                         n
                     )
                 }))
-                .spawn(|| block_on(future::pending::<()>()))
+                .spawn(|| loop {
+                    let _ = std::panic::catch_unwind(|| block_on(future::pending::<()>()));
+                })
                 .expect("cannot spawn executor thread");
         }
     }
