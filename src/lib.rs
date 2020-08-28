@@ -56,6 +56,8 @@ pub struct GlobalExecutorConfig {
     pub env_var: Option<&'static str>,
     /// The default number of threads to spawn.
     pub default_threads: Option<usize>,
+    /// The name to us fo the threads.
+    pub thread_name: Option<String>,
     /// The prefix used to name the threads.
     pub thread_name_prefix: Option<&'static str>,
 }
@@ -74,8 +76,14 @@ impl GlobalExecutorConfig {
     }
 
     /// Use the specified prefix to name the threads.
-    pub fn with_thread_name_prefix(mut self, env_var: &'static str) -> Self {
-        self.env_var = Some(env_var);
+    pub fn with_thread_name(mut self, thread_name: String) -> Self {
+        self.thread_name = Some(thread_name);
+        self
+    }
+
+    /// Use the specified prefix to name the threads.
+    pub fn with_thread_name_prefix(mut self, thread_name_prefix: &'static str) -> Self {
+        self.thread_name_prefix = Some(thread_name_prefix);
         self
     }
 }
@@ -101,13 +109,15 @@ pub fn init_with_config(config: GlobalExecutorConfig) {
             .unwrap_or(config.default_threads.unwrap_or_else(num_cpus::get));
         for n in 1..=num_cpus {
             thread::Builder::new()
-                .name(format!(
-                    "{}{}",
-                    config
-                        .thread_name_prefix
-                        .unwrap_or("async-global-executor-"),
-                    n
-                ))
+                .name(config.thread_name.clone().unwrap_or_else(|| {
+                    format!(
+                        "{}{}",
+                        config
+                            .thread_name_prefix
+                            .unwrap_or("async-global-executor-"),
+                        n
+                    )
+                }))
                 .spawn(|| block_on(future::pending::<()>()))
                 .expect("cannot spawn executor thread");
         }
@@ -151,9 +161,7 @@ pub fn block_on<F: Future<Output = T>, T>(future: F) -> T {
         };
         let global = {
             let r = r.clone();
-            GLOBAL_EXECUTOR.run(async move {
-                r.recv().await
-            })
+            GLOBAL_EXECUTOR.run(async move { r.recv().await })
         };
         let local = executor.run(r.recv());
         let executors = future::zip(global, local);
