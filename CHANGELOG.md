@@ -1,3 +1,8 @@
+# Version 1.0.0
+
+- Update dependencies
+- Make async-io support optional
+
 # Version 0.2.3
 
 - Change license to MIT or Apache-2.0
