@@ -171,9 +171,9 @@ pub fn block_on<F: Future<Output = T>, T>(future: F) -> T {
         let local = executor.run(r.recv());
         let executors = future::zip(global, local);
         let all = future::zip(executors, future);
-        #[cfg(feature="async-io")]
+        #[cfg(feature = "async-io")]
         use async_io::block_on;
-        #[cfg(not(feature="async-io"))]
+        #[cfg(not(feature = "async-io"))]
         use future::block_on;
         block_on(all).1
     })
