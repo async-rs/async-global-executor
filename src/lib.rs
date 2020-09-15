@@ -108,7 +108,8 @@ pub fn init_with_config(config: GlobalExecutorConfig) {
         let num_cpus = std::env::var(config.env_var.unwrap_or("ASYNC_GLOBAL_EXECUTOR_THREADS"))
             .ok()
             .and_then(|threads| threads.parse().ok())
-            .unwrap_or(config.default_threads.unwrap_or_else(num_cpus::get))
+            .or(config.default_threads)
+            .unwrap_or_else(num_cpus::get)
             .max(1);
         for n in 1..=num_cpus {
             thread::Builder::new()

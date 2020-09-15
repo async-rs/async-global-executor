@@ -1,6 +1,6 @@
 [package]
 name = "async-global-executor"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["Marc-Antoine Perennou <Marc-Antoine@Perennou.com>"]
 description =  "A global executor built on top of async-executor and async-io"
 edition = "2018"
@@ -17,7 +17,7 @@ default = ["async-io"]
 
 [dependencies]
 async-channel = "^1.4"
-async-executor = "^1.0"
+async-executor = "^1.1.1"
 futures-lite = "^1.0"
 num_cpus = "^1.13"
 once_cell = "^1.4"
