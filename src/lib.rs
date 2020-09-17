@@ -122,8 +122,20 @@ pub fn init_with_config(config: GlobalExecutorConfig) {
                         n
                     )
                 }))
-                .spawn(|| loop {
-                    let _ = std::panic::catch_unwind(|| block_on(future::pending::<()>()));
+                .spawn(|| {
+                    #[cfg(feature = "async-io")]
+                    use async_io::block_on;
+                    #[cfg(not(feature = "async-io"))]
+                    use future::block_on;
+                    loop {
+                        let _ = std::panic::catch_unwind(|| {
+                            LOCAL_EXECUTOR.with(|executor| {
+                                let local = executor.run(future::pending::<()>());
+                                let global = GLOBAL_EXECUTOR.run(future::pending::<()>());
+                                block_on(future::or(local, global))
+                            })
+                        });
+                    }
                 })
                 .expect("cannot spawn executor thread");
         }
@@ -158,26 +170,11 @@ pub fn init() {
 /// });
 /// ```
 pub fn block_on<F: Future<Output = T>, T>(future: F) -> T {
-    Lazy::force(&GLOBAL_EXECUTOR_THREADS);
-    LOCAL_EXECUTOR.with(|executor| {
-        let (s, r) = async_channel::bounded::<()>(1);
-        let future = async move {
-            let _s = s;
-            future.await
-        };
-        let global = {
-            let r = r.clone();
-            GLOBAL_EXECUTOR.run(async move { r.recv().await })
-        };
-        let local = executor.run(r.recv());
-        let executors = future::zip(global, local);
-        let all = future::zip(executors, future);
-        #[cfg(feature = "async-io")]
-        use async_io::block_on;
-        #[cfg(not(feature = "async-io"))]
-        use future::block_on;
-        block_on(all).1
-    })
+    #[cfg(feature = "async-io")]
+    use async_io::block_on;
+    #[cfg(not(feature = "async-io"))]
+    use future::block_on;
+    LOCAL_EXECUTOR.with(|executor| block_on(executor.run(future)))
 }
 
 /// Spawns a task onto the multi-threaded global executor.
@@ -227,6 +224,5 @@ pub fn spawn<F: Future<Output = T> + Send + 'static, T: Send + 'static>(future: 
 /// });
 /// ```
 pub fn spawn_local<F: Future<Output = T> + 'static, T: 'static>(future: F) -> Task<T> {
-    Lazy::force(&GLOBAL_EXECUTOR_THREADS);
     LOCAL_EXECUTOR.with(|executor| executor.spawn(future))
 }

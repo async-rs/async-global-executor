@@ -16,7 +16,6 @@ readme = "README.md"
 default = ["async-io"]
 
 [dependencies]
-async-channel = "^1.4"
 async-executor = "^1.1.1"
 futures-lite = "^1.0"
 num_cpus = "^1.13"
