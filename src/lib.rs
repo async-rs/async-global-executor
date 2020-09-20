@@ -45,10 +45,10 @@ pub use async_executor::Task;
 static GLOBAL_EXECUTOR_INIT: AtomicBool = AtomicBool::new(false);
 static GLOBAL_EXECUTOR_THREADS: Lazy<()> = Lazy::new(init);
 
-static GLOBAL_EXECUTOR: Executor = Executor::new();
+static GLOBAL_EXECUTOR: Executor<'_> = Executor::new();
 
 thread_local! {
-    static LOCAL_EXECUTOR: LocalExecutor = LocalExecutor::new();
+    static LOCAL_EXECUTOR: LocalExecutor<'static> = LocalExecutor::new();
 }
 
 /// Configuration to init the thread pool for the multi-threaded global executor.
