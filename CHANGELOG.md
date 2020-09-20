@@ -1,3 +1,7 @@
+# Version 1.1.0
+
+- Update async-executor
+
 # Version 1.0.2
 
 - Do not run global tasks in `block_on()`
