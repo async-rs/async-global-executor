@@ -1,5 +1,9 @@
 # Version 1.1.1
 
+- Add tokio02 feature
+
+# Version 1.1.1
+
 - Update `async-executor`.
 
 # Version 1.1.0
