@@ -246,7 +246,7 @@ fn enter02<T>(f: impl FnOnce() -> T) -> T {
         }
 
         /// The global tokio runtime.
-        static RT: Lazy<Runtime> = new(|| Runtime::new().expect("cannot initialize tokio"));
+        static RT: Lazy<Runtime> = Lazy::new(|| Runtime::new().expect("cannot initialize tokio"));
 
         NESTING.with(|nesting| {
             let res = if nesting.get() == 0 {
