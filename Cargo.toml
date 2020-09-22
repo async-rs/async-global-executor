@@ -1,6 +1,6 @@
 [package]
 name = "async-global-executor"
-version = "1.2.0"
+version = "1.2.1"
 authors = ["Marc-Antoine Perennou <Marc-Antoine@Perennou.com>"]
 description =  "A global executor built on top of async-executor and async-io"
 edition = "2018"

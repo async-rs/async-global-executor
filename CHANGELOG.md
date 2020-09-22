@@ -1,4 +1,8 @@
-# Version 1.1.1
+# Version 1.2.1
+
+- tokio02 fix
+
+# Version 1.2.0
 
 - Add tokio02 feature
 
