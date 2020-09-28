@@ -48,6 +48,8 @@ mod reactor {
         use async_io::block_on;
         #[cfg(not(feature = "async-io"))]
         use future::block_on;
+        #[cfg(feature = "tokio02")]
+        let future = async_compat::Compat::new(future);
         block_on(future)
     }
 }
@@ -134,12 +136,10 @@ pub fn init_with_config(config: GlobalExecutorConfig) {
                 }))
                 .spawn(|| loop {
                     let _ = std::panic::catch_unwind(|| {
-                        enter02(|| {
-                            LOCAL_EXECUTOR.with(|executor| {
-                                let local = executor.run(future::pending::<()>());
-                                let global = GLOBAL_EXECUTOR.run(future::pending::<()>());
-                                reactor::block_on(future::or(local, global))
-                            })
+                        LOCAL_EXECUTOR.with(|executor| {
+                            let local = executor.run(future::pending::<()>());
+                            let global = GLOBAL_EXECUTOR.run(future::pending::<()>());
+                            reactor::block_on(future::or(local, global))
                         })
                     });
                 })
@@ -176,7 +176,7 @@ pub fn init() {
 /// });
 /// ```
 pub fn block_on<F: Future<Output = T>, T>(future: F) -> T {
-    enter02(|| LOCAL_EXECUTOR.with(|executor| reactor::block_on(executor.run(future))))
+    LOCAL_EXECUTOR.with(|executor| reactor::block_on(executor.run(future)))
 }
 
 /// Spawns a task onto the multi-threaded global executor.
@@ -227,39 +227,6 @@ pub fn spawn<F: Future<Output = T> + Send + 'static, T: Send + 'static>(future: 
 /// ```
 pub fn spawn_local<F: Future<Output = T> + 'static, T: 'static>(future: F) -> Task<T> {
     LOCAL_EXECUTOR.with(|executor| executor.spawn(future))
-}
-
-/// Enters the tokio context if the `tokio02` feature is enabled.
-fn enter02<T>(f: impl FnOnce() -> T) -> T {
-    #[cfg(not(feature = "tokio02"))]
-    return f();
-
-    #[cfg(feature = "tokio02")]
-    {
-        use std::cell::Cell;
-        use tokio::runtime::Runtime;
-
-        thread_local! {
-            /// The level of nested `enter` calls we are in, to ensure that the outermost always
-            /// has a runtime spawned.
-            static NESTING: Cell<usize> = Cell::new(0);
-        }
-
-        /// The global tokio runtime.
-        static RT: Lazy<Runtime> = Lazy::new(|| Runtime::new().expect("cannot initialize tokio"));
-
-        NESTING.with(|nesting| {
-            let res = if nesting.get() == 0 {
-                nesting.replace(1);
-                RT.enter(f)
-            } else {
-                nesting.replace(nesting.get() + 1);
-                f()
-            };
-            nesting.replace(nesting.get() - 1);
-            res
-        })
-    }
 }
 
 #[cfg(all(test, feature = "tokio02"))]
