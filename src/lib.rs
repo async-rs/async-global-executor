@@ -42,6 +42,16 @@ use std::{
 
 pub use async_executor::Task;
 
+mod reactor {
+    pub(crate) fn block_on<F: std::future::Future<Output = T>, T>(future: F) -> T {
+        #[cfg(feature = "async-io")]
+        use async_io::block_on;
+        #[cfg(not(feature = "async-io"))]
+        use future::block_on;
+        block_on(future)
+    }
+}
+
 static GLOBAL_EXECUTOR_INIT: AtomicBool = AtomicBool::new(false);
 static GLOBAL_EXECUTOR_THREADS: Lazy<()> = Lazy::new(init);
 
@@ -122,22 +132,16 @@ pub fn init_with_config(config: GlobalExecutorConfig) {
                         n
                     )
                 }))
-                .spawn(|| {
-                    #[cfg(feature = "async-io")]
-                    use async_io::block_on;
-                    #[cfg(not(feature = "async-io"))]
-                    use future::block_on;
-                    loop {
-                        let _ = std::panic::catch_unwind(|| {
-                            enter02(|| {
-                                LOCAL_EXECUTOR.with(|executor| {
-                                    let local = executor.run(future::pending::<()>());
-                                    let global = GLOBAL_EXECUTOR.run(future::pending::<()>());
-                                    block_on(future::or(local, global))
-                                })
+                .spawn(|| loop {
+                    let _ = std::panic::catch_unwind(|| {
+                        enter02(|| {
+                            LOCAL_EXECUTOR.with(|executor| {
+                                let local = executor.run(future::pending::<()>());
+                                let global = GLOBAL_EXECUTOR.run(future::pending::<()>());
+                                reactor::block_on(future::or(local, global))
                             })
-                        });
-                    }
+                        })
+                    });
                 })
                 .expect("cannot spawn executor thread");
         }
@@ -172,11 +176,7 @@ pub fn init() {
 /// });
 /// ```
 pub fn block_on<F: Future<Output = T>, T>(future: F) -> T {
-    #[cfg(feature = "async-io")]
-    use async_io::block_on;
-    #[cfg(not(feature = "async-io"))]
-    use future::block_on;
-    enter02(|| LOCAL_EXECUTOR.with(|executor| block_on(executor.run(future))))
+    enter02(|| LOCAL_EXECUTOR.with(|executor| reactor::block_on(executor.run(future))))
 }
 
 /// Spawns a task onto the multi-threaded global executor.
