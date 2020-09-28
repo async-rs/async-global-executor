@@ -261,3 +261,24 @@ fn enter02<T>(f: impl FnOnce() -> T) -> T {
         })
     }
 }
+
+#[cfg(all(test, feature = "tokio02"))]
+mod test_tokio02 {
+    use super::*;
+
+    async fn compute() -> u8 {
+        tokio::spawn(async { 1 + 2 }).await.unwrap()
+    }
+
+    #[test]
+    fn spawn_tokio() {
+        block_on(async {
+            assert_eq!(
+                spawn(compute()).await
+                    + spawn_local(compute()).await
+                    + tokio::spawn(compute()).await.unwrap(),
+                9
+            );
+        });
+    }
+}
