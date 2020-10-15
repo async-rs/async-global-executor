@@ -232,6 +232,7 @@ pub fn spawn_local<F: Future<Output = T> + 'static, T: 'static>(future: F) -> Ta
 #[cfg(all(test, feature = "tokio02"))]
 mod test_tokio02 {
     use super::*;
+    use tokio02_crate as tokio;
 
     async fn compute() -> u8 {
         tokio::spawn(async { 1 + 2 }).await.unwrap()

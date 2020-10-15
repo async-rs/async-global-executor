@@ -30,7 +30,8 @@ optional = true
 version = "^1.0"
 optional = true
 
-[dev-dependencies.tokio]
+[dev-dependencies.tokio02-crate]
+package = "tokio"
 version = "^0.2"
 default-features = false
 features = ["rt-threaded"]
