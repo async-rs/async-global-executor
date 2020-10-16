@@ -67,7 +67,12 @@ thread_local! {
 
 #[cfg(feature = "tokio03")]
 static TOKIO03: Lazy<std::sync::Arc<tokio03_crate::runtime::Runtime>> = Lazy::new(|| {
-    let rt = std::sync::Arc::new(tokio03_crate::runtime::Builder::new_current_thread().enable_all().build().expect("failed to build tokio03 runtime"));
+    let rt = std::sync::Arc::new(
+        tokio03_crate::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("failed to build tokio03 runtime"),
+    );
     {
         let rt = rt.clone();
         thread::Builder::new()
