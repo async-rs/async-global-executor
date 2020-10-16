@@ -1,3 +1,7 @@
+# Version 1.4.0
+
+- add tokio03 integration
+
 # Version 1.3.0
 
 - use async-compat for tokio02 integration
