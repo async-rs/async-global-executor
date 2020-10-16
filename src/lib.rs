@@ -50,6 +50,8 @@ mod reactor {
         use future::block_on;
         #[cfg(feature = "tokio02")]
         let future = async_compat::Compat::new(future);
+        #[cfg(feature = "tokio03")]
+        let _tokio93_enter = crate::TOKIO03.enter();
         block_on(future)
     }
 }
@@ -62,6 +64,21 @@ static GLOBAL_EXECUTOR: Executor<'_> = Executor::new();
 thread_local! {
     static LOCAL_EXECUTOR: LocalExecutor<'static> = LocalExecutor::new();
 }
+
+#[cfg(feature = "tokio03")]
+static TOKIO03: Lazy<std::sync::Arc<tokio03_crate::runtime::Runtime>> = Lazy::new(|| {
+    let rt = std::sync::Arc::new(tokio03_crate::runtime::Builder::new_current_thread().enable_all().build().expect("failed to build tokio03 runtime"));
+    {
+        let rt = rt.clone();
+        thread::Builder::new()
+            .name("async-global-executor/tokio03".to_string())
+            .spawn(move || {
+                rt.block_on(futures_lite::future::pending::<()>());
+            })
+            .unwrap();
+    }
+    rt
+});
 
 /// Configuration to init the thread pool for the multi-threaded global executor.
 #[derive(Default, Debug)]
@@ -233,6 +250,28 @@ pub fn spawn_local<F: Future<Output = T> + 'static, T: 'static>(future: F) -> Ta
 mod test_tokio02 {
     use super::*;
     use tokio02_crate as tokio;
+
+    async fn compute() -> u8 {
+        tokio::spawn(async { 1 + 2 }).await.unwrap()
+    }
+
+    #[test]
+    fn spawn_tokio() {
+        block_on(async {
+            assert_eq!(
+                spawn(compute()).await
+                    + spawn_local(compute()).await
+                    + tokio::spawn(compute()).await.unwrap(),
+                9
+            );
+        });
+    }
+}
+
+#[cfg(all(test, feature = "tokio03"))]
+mod test_tokio03 {
+    use super::*;
+    use tokio03_crate as tokio;
 
     async fn compute() -> u8 {
         tokio::spawn(async { 1 + 2 }).await.unwrap()
