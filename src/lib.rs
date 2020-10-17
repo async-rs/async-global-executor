@@ -51,7 +51,7 @@ mod reactor {
         #[cfg(feature = "tokio02")]
         let future = async_compat::Compat::new(future);
         #[cfg(feature = "tokio03")]
-        let _tokio93_enter = crate::TOKIO03.enter();
+        let _tokio03_enter = crate::TOKIO03.enter();
         block_on(future)
     }
 }
