@@ -83,23 +83,17 @@ static TOKIO02: Lazy<tokio02_crate::runtime::Handle> = Lazy::new(|| {
 });
 
 #[cfg(feature = "tokio03")]
-static TOKIO03: Lazy<std::sync::Arc<tokio03_crate::runtime::Runtime>> = Lazy::new(|| {
-    let rt = std::sync::Arc::new(
-        tokio03_crate::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("failed to build tokio03 runtime"),
-    );
-    {
-        let rt = rt.clone();
-        thread::Builder::new()
-            .name("async-global-executor/tokio03".to_string())
-            .spawn(move || {
-                rt.block_on(future::pending::<()>());
-            })
-            .unwrap();
-    }
-    rt
+static TOKIO03: Lazy<tokio03_crate::runtime::Runtime> = Lazy::new(|| {
+    thread::Builder::new()
+        .name("async-global-executor/tokio03".to_string())
+        .spawn(move || {
+            TOKIO03.block_on(future::pending::<()>());
+        })
+        .unwrap();
+    tokio03_crate::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build tokio03 runtime")
 });
 
 /// Configuration to init the thread pool for the multi-threaded global executor.
