@@ -48,11 +48,12 @@ mod reactor {
         use async_io::block_on;
         #[cfg(not(feature = "async-io"))]
         use future::block_on;
+        let run = || block_on(future);
         #[cfg(feature = "tokio02")]
-        let future = async_compat::Compat::new(future);
+        let run = || crate::TOKIO02.enter(|| run());
         #[cfg(feature = "tokio03")]
         let _tokio03_enter = crate::TOKIO03.enter();
-        block_on(future)
+        run()
     }
 }
 
@@ -64,6 +65,23 @@ static GLOBAL_EXECUTOR: Executor<'_> = Executor::new();
 thread_local! {
     static LOCAL_EXECUTOR: LocalExecutor<'static> = LocalExecutor::new();
 }
+
+#[cfg(feature = "tokio02")]
+static TOKIO02: Lazy<tokio02_crate::runtime::Handle> = Lazy::new(|| {
+    let mut rt = tokio02_crate::runtime::Builder::new()
+        .enable_all()
+        .basic_scheduler()
+        .build()
+        .expect("failed to build tokio02 runtime");
+    let handle = rt.handle().clone();
+    thread::Builder::new()
+        .name("async-global-executor/tokio02".to_string())
+        .spawn(move || {
+            rt.block_on(future::pending::<()>());
+        })
+        .unwrap();
+    handle
+});
 
 #[cfg(feature = "tokio03")]
 static TOKIO03: Lazy<std::sync::Arc<tokio03_crate::runtime::Runtime>> = Lazy::new(|| {
@@ -78,7 +96,7 @@ static TOKIO03: Lazy<std::sync::Arc<tokio03_crate::runtime::Runtime>> = Lazy::ne
         thread::Builder::new()
             .name("async-global-executor/tokio03".to_string())
             .spawn(move || {
-                rt.block_on(futures_lite::future::pending::<()>());
+                rt.block_on(future::pending::<()>());
             })
             .unwrap();
     }
