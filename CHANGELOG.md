@@ -1,3 +1,7 @@
+# Version 1.4.1
+
+- switch back to manual implementation for tokio02 integration
+
 # Version 1.4.0
 
 - add tokio03 integration
