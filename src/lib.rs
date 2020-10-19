@@ -45,10 +45,9 @@ pub use async_executor::Task;
 mod reactor {
     pub(crate) fn block_on<F: std::future::Future<Output = T>, T>(future: F) -> T {
         #[cfg(feature = "async-io")]
-        use async_io::block_on;
+        let run = || async_io::block_on(future);
         #[cfg(not(feature = "async-io"))]
-        use future::block_on;
-        let run = || block_on(future);
+        let run = || future::block_on(future);
         #[cfg(feature = "tokio02")]
         let run = || crate::TOKIO02.enter(|| run());
         #[cfg(feature = "tokio03")]
