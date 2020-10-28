@@ -85,11 +85,8 @@ static TOKIO03: Lazy<tokio03_crate::runtime::Runtime> = Lazy::new(|| {
         .spawn(move || {
             TOKIO03.block_on(future::pending::<()>());
         })
-        .unwrap();
-    tokio03_crate::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .expect("failed to build tokio03 runtime")
+        .expect("failed to spawn tokio03 driver thread");
+    tokio03_crate::runtime::Runtime::new().expect("failed to build tokio03 runtime")
 });
 
 /// Configuration to init the thread pool for the multi-threaded global executor.
