@@ -67,18 +67,14 @@ thread_local! {
 
 #[cfg(feature = "tokio02")]
 static TOKIO02: Lazy<tokio02_crate::runtime::Handle> = Lazy::new(|| {
-    let mut rt = tokio02_crate::runtime::Builder::new()
-        .enable_all()
-        .basic_scheduler()
-        .build()
-        .expect("failed to build tokio02 runtime");
+    let mut rt = tokio02_crate::runtime::Runtime::new().expect("failed to build tokio02 runtime");
     let handle = rt.handle().clone();
     thread::Builder::new()
         .name("async-global-executor/tokio02".to_string())
         .spawn(move || {
             rt.block_on(future::pending::<()>());
         })
-        .unwrap();
+        .expect("failed to spawn tokio02 driver thread");
     handle
 });
 
