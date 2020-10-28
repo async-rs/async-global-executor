@@ -1,3 +1,7 @@
+# Version 1.4.3
+
+- switch to multi threaded tokio schedulers when enabled
+
 # Version 1.4.2
 
 - Drop an Arc
