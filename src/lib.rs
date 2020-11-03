@@ -61,6 +61,7 @@ static GLOBAL_EXECUTOR_CONFIG: OnceCell<Config> = OnceCell::new();
 static GLOBAL_EXECUTOR_INIT: AtomicBool = AtomicBool::new(false);
 static GLOBAL_EXECUTOR_THREADS: Lazy<()> = Lazy::new(init);
 
+static GLOBAL_EXECUTOR_THREADS_NUMBER: AtomicUsize = AtomicUsize::new(0);
 static GLOBAL_EXECUTOR_NEXT_THREAD: AtomicUsize = AtomicUsize::new(1);
 
 static GLOBAL_EXECUTOR: Executor<'_> = Executor::new();
@@ -206,6 +207,7 @@ pub fn spawn_more_threads(count: usize) -> io::Result<()> {
         Lazy::force(&GLOBAL_EXECUTOR_THREADS);
         GLOBAL_EXECUTOR_CONFIG.get().unwrap()
     });
+    let count = count.min(config.max_threads - GLOBAL_EXECUTOR_THREADS_NUMBER.load(Ordering::SeqCst));
     for _ in 0..count {
         thread::Builder::new()
             .name(config.thread_name.clone().unwrap_or_else(|| {
@@ -226,6 +228,9 @@ pub fn spawn_more_threads(count: usize) -> io::Result<()> {
                     })
                 });
             })?;
+            if GLOBAL_EXECUTOR_THREADS_NUMBER.fetch_add(1, Ordering::SeqCst) >= config.max_threads {
+                break;
+            }
     }
     Ok(())
 }
