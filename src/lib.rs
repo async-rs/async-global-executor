@@ -33,7 +33,7 @@ doc_comment::doctest!("../README.md");
 
 use async_executor::{Executor, LocalExecutor};
 use futures_lite::future;
-use once_cell::sync::Lazy;
+use once_cell::sync::{Lazy, OnceCell};
 use std::{
     future::Future,
     sync::atomic::{AtomicBool, Ordering},
@@ -56,6 +56,7 @@ mod reactor {
     }
 }
 
+static GLOBAL_EXECUTOR_CONFIG: OnceCell<GlobalExecutorConfig> = OnceCell::new();
 static GLOBAL_EXECUTOR_INIT: AtomicBool = AtomicBool::new(false);
 static GLOBAL_EXECUTOR_THREADS: Lazy<()> = Lazy::new(init);
 
@@ -142,6 +143,21 @@ impl GlobalExecutorConfig {
 /// );
 /// ```
 pub fn init_with_config(config: GlobalExecutorConfig) {
+    let _ = GLOBAL_EXECUTOR_CONFIG.set(config);
+    init();
+}
+
+/// Init the global executor, spawning as many threads as the number or cpus or
+/// the value specified by the `ASYNC_GLOBAL_EXECUTOR_THREADS` environment variable
+/// if specified.
+///
+/// # Examples
+///
+/// ```
+/// async_global_executor::init();
+/// ```
+pub fn init() {
+    let config = GLOBAL_EXECUTOR_CONFIG.get_or_init(GlobalExecutorConfig::default);
     if !GLOBAL_EXECUTOR_INIT.compare_and_swap(false, true, Ordering::AcqRel) {
         let num_cpus = std::env::var(config.env_var.unwrap_or("ASYNC_GLOBAL_EXECUTOR_THREADS"))
             .ok()
@@ -172,19 +188,6 @@ pub fn init_with_config(config: GlobalExecutorConfig) {
                 .expect("cannot spawn executor thread");
         }
     }
-}
-
-/// Init the global executor, spawning as many threads as the number or cpus or
-/// the value specified by the `ASYNC_GLOBAL_EXECUTOR_THREADS` environment variable
-/// if specified.
-///
-/// # Examples
-///
-/// ```
-/// async_global_executor::init();
-/// ```
-pub fn init() {
-    init_with_config(GlobalExecutorConfig::default());
 }
 
 /// Runs the global and the local executor on the current thread
