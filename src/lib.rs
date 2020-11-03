@@ -36,7 +36,8 @@ use futures_lite::future;
 use once_cell::sync::{Lazy, OnceCell};
 use std::{
     future::Future,
-    sync::atomic::{AtomicBool, Ordering},
+    io,
+    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
     thread,
 };
 
@@ -59,6 +60,7 @@ mod reactor {
 static GLOBAL_EXECUTOR_CONFIG: OnceCell<GlobalExecutorConfig> = OnceCell::new();
 static GLOBAL_EXECUTOR_INIT: AtomicBool = AtomicBool::new(false);
 static GLOBAL_EXECUTOR_THREADS: Lazy<()> = Lazy::new(init);
+static GLOBAL_EXECUTOR_NEXT_THREAD: AtomicUsize = AtomicUsize::new(1);
 
 static GLOBAL_EXECUTOR: Executor<'_> = Executor::new();
 
@@ -159,35 +161,50 @@ pub fn init_with_config(config: GlobalExecutorConfig) {
 pub fn init() {
     let config = GLOBAL_EXECUTOR_CONFIG.get_or_init(GlobalExecutorConfig::default);
     if !GLOBAL_EXECUTOR_INIT.compare_and_swap(false, true, Ordering::AcqRel) {
-        let num_cpus = std::env::var(config.env_var.unwrap_or("ASYNC_GLOBAL_EXECUTOR_THREADS"))
+        let num_threads = std::env::var(config.env_var.unwrap_or("ASYNC_GLOBAL_EXECUTOR_THREADS"))
             .ok()
             .and_then(|threads| threads.parse().ok())
             .or(config.default_threads)
             .unwrap_or_else(num_cpus::get)
             .max(1);
-        for n in 1..=num_cpus {
-            thread::Builder::new()
-                .name(config.thread_name.clone().unwrap_or_else(|| {
-                    format!(
-                        "{}{}",
-                        config
-                            .thread_name_prefix
-                            .unwrap_or("async-global-executor-"),
-                        n
-                    )
-                }))
-                .spawn(|| loop {
-                    let _ = std::panic::catch_unwind(|| {
-                        LOCAL_EXECUTOR.with(|executor| {
-                            let local = executor.run(future::pending::<()>());
-                            let global = GLOBAL_EXECUTOR.run(future::pending::<()>());
-                            reactor::block_on(future::or(local, global))
-                        })
-                    });
-                })
-                .expect("cannot spawn executor thread");
-        }
+        spawn_more_threads(num_threads).expect("cannot spawn executor threads");
     }
+}
+
+/// Spawn more executor threads, up to configured max value.
+///
+/// # Examples
+///
+/// ```
+/// async_global_executor::spawn_more_threads(2);
+/// ```
+pub fn spawn_more_threads(count: usize) -> io::Result<()> {
+    let config = GLOBAL_EXECUTOR_CONFIG.get().unwrap_or_else(|| {
+        Lazy::force(&GLOBAL_EXECUTOR_THREADS);
+        GLOBAL_EXECUTOR_CONFIG.get().unwrap()
+    });
+    for _ in 0..count {
+        thread::Builder::new()
+            .name(config.thread_name.clone().unwrap_or_else(|| {
+                format!(
+                    "{}{}",
+                    config
+                        .thread_name_prefix
+                        .unwrap_or("async-global-executor-"),
+                    GLOBAL_EXECUTOR_NEXT_THREAD.fetch_add(1, Ordering::SeqCst),
+                )
+            }))
+            .spawn(|| loop {
+                let _ = std::panic::catch_unwind(|| {
+                    LOCAL_EXECUTOR.with(|executor| {
+                        let local = executor.run(future::pending::<()>());
+                        let global = GLOBAL_EXECUTOR.run(future::pending::<()>());
+                        reactor::block_on(future::or(local, global))
+                    })
+                });
+            })?;
+    }
+    Ok(())
 }
 
 /// Runs the global and the local executor on the current thread
