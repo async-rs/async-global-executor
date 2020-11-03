@@ -37,7 +37,7 @@ use once_cell::sync::{Lazy, OnceCell};
 use std::{
     future::Future,
     io,
-    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
+    sync::atomic::{AtomicUsize, Ordering},
     thread,
 };
 
@@ -58,7 +58,6 @@ mod reactor {
 }
 
 static GLOBAL_EXECUTOR_CONFIG: OnceCell<Config> = OnceCell::new();
-static GLOBAL_EXECUTOR_INIT: AtomicBool = AtomicBool::new(false);
 static GLOBAL_EXECUTOR_THREADS: Lazy<()> = Lazy::new(init);
 
 static GLOBAL_EXECUTOR_THREADS_NUMBER: AtomicUsize = AtomicUsize::new(0);
@@ -190,7 +189,7 @@ pub fn init_with_config(config: GlobalExecutorConfig) {
 /// ```
 pub fn init() {
     let config = GLOBAL_EXECUTOR_CONFIG.get_or_init(Config::default);
-    if !GLOBAL_EXECUTOR_INIT.compare_and_swap(false, true, Ordering::AcqRel) {
+    if GLOBAL_EXECUTOR_THREADS_NUMBER.load(Ordering::SeqCst) == 0 {
         spawn_more_threads(config.min_threads).expect("cannot spawn executor threads");
     }
 }
