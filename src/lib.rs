@@ -57,9 +57,10 @@ mod reactor {
     }
 }
 
-static GLOBAL_EXECUTOR_CONFIG: OnceCell<GlobalExecutorConfig> = OnceCell::new();
+static GLOBAL_EXECUTOR_CONFIG: OnceCell<Config> = OnceCell::new();
 static GLOBAL_EXECUTOR_INIT: AtomicBool = AtomicBool::new(false);
 static GLOBAL_EXECUTOR_THREADS: Lazy<()> = Lazy::new(init);
+
 static GLOBAL_EXECUTOR_NEXT_THREAD: AtomicUsize = AtomicUsize::new(1);
 
 static GLOBAL_EXECUTOR: Executor<'_> = Executor::new();
@@ -129,6 +130,34 @@ impl GlobalExecutorConfig {
         self.thread_name_prefix = Some(thread_name_prefix);
         self
     }
+
+    fn seal(self) -> Config {
+        let num_threads = std::env::var(self.env_var.unwrap_or("ASYNC_GLOBAL_EXECUTOR_THREADS"))
+            .ok()
+            .and_then(|threads| threads.parse().ok())
+            .or(self.default_threads)
+            .unwrap_or_else(num_cpus::get)
+            .max(1);
+        Config {
+            min_threads: num_threads,
+            max_threads: num_threads * 4, // FIXME: make this configurable in 2.0
+            thread_name: self.thread_name, // FIXME: make this a Fn in 2.0
+            thread_name_prefix: self.thread_name_prefix,
+        }
+    }
+}
+
+struct Config {
+    min_threads: usize,
+    max_threads: usize,
+    thread_name: Option<String>,
+    thread_name_prefix: Option<&'static str>,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        GlobalExecutorConfig::default().seal()
+    }
 }
 
 /// Init the global executor, spawning as many threads as specified or
@@ -145,7 +174,7 @@ impl GlobalExecutorConfig {
 /// );
 /// ```
 pub fn init_with_config(config: GlobalExecutorConfig) {
-    let _ = GLOBAL_EXECUTOR_CONFIG.set(config);
+    let _ = GLOBAL_EXECUTOR_CONFIG.set(config.seal());
     init();
 }
 
@@ -159,15 +188,9 @@ pub fn init_with_config(config: GlobalExecutorConfig) {
 /// async_global_executor::init();
 /// ```
 pub fn init() {
-    let config = GLOBAL_EXECUTOR_CONFIG.get_or_init(GlobalExecutorConfig::default);
+    let config = GLOBAL_EXECUTOR_CONFIG.get_or_init(Config::default);
     if !GLOBAL_EXECUTOR_INIT.compare_and_swap(false, true, Ordering::AcqRel) {
-        let num_threads = std::env::var(config.env_var.unwrap_or("ASYNC_GLOBAL_EXECUTOR_THREADS"))
-            .ok()
-            .and_then(|threads| threads.parse().ok())
-            .or(config.default_threads)
-            .unwrap_or_else(num_cpus::get)
-            .max(1);
-        spawn_more_threads(num_threads).expect("cannot spawn executor threads");
+        spawn_more_threads(config.min_threads).expect("cannot spawn executor threads");
     }
 }
 
