@@ -20,6 +20,7 @@ tokio03 = ["tokio03-crate"]
 [dependencies]
 async-channel = "^1.5"
 async-executor = "^1.3"
+async-mutex = "^1.4"
 futures-lite = "^1.0"
 num_cpus = "^1.13"
 once_cell = "^1.4"

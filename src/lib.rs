@@ -33,6 +33,7 @@ doc_comment::doctest!("../README.md");
 
 use async_channel::{Receiver, Sender};
 use async_executor::{Executor, LocalExecutor};
+use async_mutex::Mutex;
 use futures_lite::future;
 use once_cell::sync::{Lazy, OnceCell};
 use std::{
@@ -49,7 +50,7 @@ pub use async_executor::Task;
 static GLOBAL_EXECUTOR_CONFIG: OnceCell<Config> = OnceCell::new();
 static GLOBAL_EXECUTOR_THREADS: Lazy<()> = Lazy::new(init);
 
-static GLOBAL_EXECUTOR_THREADS_NUMBER: AtomicUsize = AtomicUsize::new(0);
+static GLOBAL_EXECUTOR_THREADS_NUMBER: Mutex<usize> = Mutex::new(0);
 static GLOBAL_EXECUTOR_NEXT_THREAD: AtomicUsize = AtomicUsize::new(1);
 
 static GLOBAL_EXECUTOR: Executor<'_> = Executor::new();
@@ -229,9 +230,13 @@ pub fn init_with_config(config: GlobalExecutorConfig) {
 /// ```
 pub fn init() {
     let config = GLOBAL_EXECUTOR_CONFIG.get_or_init(Config::default);
-    if GLOBAL_EXECUTOR_THREADS_NUMBER.load(Ordering::SeqCst) == 0 {
-        spawn_more_threads(config.min_threads).expect("cannot spawn executor threads");
-    }
+    reactor::block_on(async {
+        if current_threads_number().await == 0 {
+            spawn_more_threads(config.min_threads)
+                .await
+                .expect("cannot spawn executor threads");
+        }
+    });
 }
 
 /// Spawn more executor threads, up to configured max value.
@@ -241,13 +246,13 @@ pub fn init() {
 /// ```
 /// async_global_executor::spawn_more_threads(2);
 /// ```
-pub fn spawn_more_threads(count: usize) -> io::Result<()> {
+pub async fn spawn_more_threads(count: usize) -> io::Result<()> {
     let config = GLOBAL_EXECUTOR_CONFIG.get().unwrap_or_else(|| {
         Lazy::force(&GLOBAL_EXECUTOR_THREADS);
         GLOBAL_EXECUTOR_CONFIG.get().unwrap()
     });
-    let count =
-        count.min(config.max_threads - GLOBAL_EXECUTOR_THREADS_NUMBER.load(Ordering::SeqCst));
+    let mut threads_number = GLOBAL_EXECUTOR_THREADS_NUMBER.lock().await;
+    let count = count.min(config.max_threads - *threads_number);
     for _ in 0..count {
         thread::Builder::new()
             .name(config.thread_name.clone().unwrap_or_else(|| {
@@ -277,9 +282,7 @@ pub fn spawn_more_threads(count: usize) -> io::Result<()> {
                     })
                 });
             })?;
-        if GLOBAL_EXECUTOR_THREADS_NUMBER.fetch_add(1, Ordering::SeqCst) >= config.max_threads {
-            break;
-        }
+        *threads_number += 1;
     }
     Ok(())
 }
@@ -322,15 +325,18 @@ mod reactor {
     }
 }
 
+async fn current_threads_number() -> usize {
+    *GLOBAL_EXECUTOR_THREADS_NUMBER.lock().await
+}
+
 async fn stop_current_executor_thread() {
-    if GLOBAL_EXECUTOR_THREADS_NUMBER.load(Ordering::SeqCst)
-        > GLOBAL_EXECUTOR_CONFIG.get().unwrap().min_threads
-    {
+    let mut threads_number = GLOBAL_EXECUTOR_THREADS_NUMBER.lock().await;
+    if *threads_number > GLOBAL_EXECUTOR_CONFIG.get().unwrap().min_threads {
         let (s, r_ack) =
             THREAD_SHUTDOWN.with(|thread_shutdown| thread_shutdown.get().unwrap().clone());
         let _ = s.send(()).await;
         let _ = r_ack.recv().await;
-        GLOBAL_EXECUTOR_THREADS_NUMBER.fetch_sub(1, Ordering::SeqCst);
+        *threads_number -= 1;
     }
 }
 
