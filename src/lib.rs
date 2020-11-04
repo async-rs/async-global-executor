@@ -52,6 +52,7 @@ static GLOBAL_EXECUTOR_CONFIG: OnceCell<Config> = OnceCell::new();
 static GLOBAL_EXECUTOR_THREADS: Lazy<()> = Lazy::new(init);
 
 static GLOBAL_EXECUTOR_THREADS_NUMBER: Mutex<usize> = Mutex::new(0);
+static GLOBAL_EXECUTOR_EXPECTED_THREADS_NUMBER: Mutex<usize> = Mutex::new(0);
 static GLOBAL_EXECUTOR_NEXT_THREAD: AtomicUsize = AtomicUsize::new(1);
 
 static GLOBAL_EXECUTOR: Executor<'_> = Executor::new();
@@ -268,6 +269,7 @@ pub async fn spawn_more_threads(count: usize) -> io::Result<()> {
         GLOBAL_EXECUTOR_CONFIG.get().unwrap()
     });
     let mut threads_number = GLOBAL_EXECUTOR_THREADS_NUMBER.lock().await;
+    let mut expected_threads_number = GLOBAL_EXECUTOR_EXPECTED_THREADS_NUMBER.lock().await;
     let count = count.min(config.max_threads - *threads_number);
     for _ in 0..count {
         thread::Builder::new()
@@ -276,6 +278,7 @@ pub async fn spawn_more_threads(count: usize) -> io::Result<()> {
             ))
             .spawn(thread_main_loop)?;
         *threads_number += 1;
+        *expected_threads_number += 1;
     }
     Ok(())
 }
@@ -343,13 +346,15 @@ async fn current_threads_number() -> usize {
 }
 
 async fn stop_current_executor_thread() {
-    let mut threads_number = GLOBAL_EXECUTOR_THREADS_NUMBER.lock().await;
-    if *threads_number > GLOBAL_EXECUTOR_CONFIG.get().unwrap().min_threads {
+    let mut expected_threads_number = GLOBAL_EXECUTOR_EXPECTED_THREADS_NUMBER.lock().await;
+    if *expected_threads_number > GLOBAL_EXECUTOR_CONFIG.get().unwrap().min_threads {
         let (s, r_ack) =
             THREAD_SHUTDOWN.with(|thread_shutdown| thread_shutdown.get().unwrap().clone());
         let _ = s.send(()).await;
+        *expected_threads_number -= 1;
+        drop(expected_threads_number);
         let _ = r_ack.recv().await;
-        *threads_number -= 1;
+        *GLOBAL_EXECUTOR_THREADS_NUMBER.lock().await -= 1;
     }
 }
 
