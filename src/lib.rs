@@ -311,9 +311,9 @@ mod reactor {
         #[cfg(not(feature = "async-io"))]
         let run = || future::block_on(future);
         #[cfg(feature = "tokio02")]
-        let run = || crate::TOKIO02.enter(|| run());
+        let run = || crate::tokio02::enter(run);
         #[cfg(feature = "tokio03")]
-        let _tokio03_enter = crate::TOKIO03.enter();
+        let _tokio03_enter = crate::tokio03::enter();
         run()
     }
 }
@@ -355,70 +355,7 @@ async fn stop_current_executor_thread() {
 
 // Tokio integration
 
-#[cfg(feature = "tokio03")]
-static TOKIO03: Lazy<tokio03_crate::runtime::Runtime> = Lazy::new(|| {
-    thread::Builder::new()
-        .name("async-global-executor/tokio03".to_string())
-        .spawn(move || {
-            TOKIO03.block_on(future::pending::<()>());
-        })
-        .expect("failed to spawn tokio03 driver thread");
-    tokio03_crate::runtime::Runtime::new().expect("failed to build tokio03 runtime")
-});
-
-#[cfg(all(test, feature = "tokio03"))]
-mod test_tokio03 {
-    use super::*;
-    use tokio03_crate as tokio;
-
-    async fn compute() -> u8 {
-        tokio::spawn(async { 1 + 2 }).await.unwrap()
-    }
-
-    #[test]
-    fn spawn_tokio() {
-        block_on(async {
-            assert_eq!(
-                spawn(compute()).await
-                    + spawn_local(compute()).await
-                    + tokio::spawn(compute()).await.unwrap(),
-                9
-            );
-        });
-    }
-}
-
 #[cfg(feature = "tokio02")]
-static TOKIO02: Lazy<tokio02_crate::runtime::Handle> = Lazy::new(|| {
-    let mut rt = tokio02_crate::runtime::Runtime::new().expect("failed to build tokio02 runtime");
-    let handle = rt.handle().clone();
-    thread::Builder::new()
-        .name("async-global-executor/tokio02".to_string())
-        .spawn(move || {
-            rt.block_on(future::pending::<()>());
-        })
-        .expect("failed to spawn tokio02 driver thread");
-    handle
-});
-
-#[cfg(all(test, feature = "tokio02"))]
-mod test_tokio02 {
-    use super::*;
-    use tokio02_crate as tokio;
-
-    async fn compute() -> u8 {
-        tokio::spawn(async { 1 + 2 }).await.unwrap()
-    }
-
-    #[test]
-    fn spawn_tokio() {
-        block_on(async {
-            assert_eq!(
-                spawn(compute()).await
-                    + spawn_local(compute()).await
-                    + tokio::spawn(compute()).await.unwrap(),
-                9
-            );
-        });
-    }
-}
+mod tokio02;
+#[cfg(feature = "tokio03")]
+mod tokio03;
