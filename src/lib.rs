@@ -31,6 +31,7 @@
 #[cfg(doctest)]
 doc_comment::doctest!("../README.md");
 
+use async_channel::{Receiver, Sender};
 use async_executor::{Executor, LocalExecutor};
 use futures_lite::future;
 use once_cell::sync::{Lazy, OnceCell};
@@ -55,6 +56,7 @@ static GLOBAL_EXECUTOR: Executor<'_> = Executor::new();
 
 thread_local! {
     static LOCAL_EXECUTOR: LocalExecutor<'static> = LocalExecutor::new();
+    static THREAD_SHUTDOWN: OnceCell<(Sender<()>, Receiver<()>)> = OnceCell::new();
 }
 
 // Executor methods
@@ -260,9 +262,18 @@ pub fn spawn_more_threads(count: usize) -> io::Result<()> {
             .spawn(|| loop {
                 let _ = std::panic::catch_unwind(|| {
                     LOCAL_EXECUTOR.with(|executor| {
+                        let (s, r) = async_channel::bounded(1);
+                        let (s_ack, r_ack) = async_channel::bounded(1);
+                        THREAD_SHUTDOWN
+                            .with(|thread_shutdown| drop(thread_shutdown.set((s, r_ack))));
                         let local = executor.run(future::pending::<()>());
                         let global = GLOBAL_EXECUTOR.run(future::pending::<()>());
-                        reactor::block_on(future::or(local, global))
+                        let executors = future::or(local, global);
+                        let shutdown = async {
+                            let _ = r.recv().await;
+                            let _ = s_ack.send(()).await;
+                        };
+                        reactor::block_on(future::or(executors, shutdown));
                     })
                 });
             })?;
@@ -271,6 +282,28 @@ pub fn spawn_more_threads(count: usize) -> io::Result<()> {
         }
     }
     Ok(())
+}
+
+/// Stop one of the executor threads, down to configured min value
+///
+/// # Examples
+///
+/// ```
+/// async_global_executor::stop_thread();
+/// ```
+pub fn stop_thread() -> Task<()> {
+    spawn(stop_current_executor_thread())
+}
+
+/// Stop the current executor thread, if we exceed the configured min value
+///
+/// # Examples
+///
+/// ```
+/// async_global_executor::stop_current_thread();
+/// ```
+pub fn stop_current_thread() -> Task<()> {
+    spawn_local(stop_current_executor_thread())
 }
 
 // Internals
@@ -286,6 +319,18 @@ mod reactor {
         #[cfg(feature = "tokio03")]
         let _tokio03_enter = crate::TOKIO03.enter();
         run()
+    }
+}
+
+async fn stop_current_executor_thread() {
+    if GLOBAL_EXECUTOR_THREADS_NUMBER.load(Ordering::SeqCst)
+        > GLOBAL_EXECUTOR_CONFIG.get().unwrap().min_threads
+    {
+        let (s, r_ack) =
+            THREAD_SHUTDOWN.with(|thread_shutdown| thread_shutdown.get().unwrap().clone());
+        let _ = s.send(()).await;
+        let _ = r_ack.recv().await;
+        GLOBAL_EXECUTOR_THREADS_NUMBER.fetch_sub(1, Ordering::SeqCst);
     }
 }
 
