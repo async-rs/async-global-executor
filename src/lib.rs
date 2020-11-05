@@ -55,8 +55,6 @@ static GLOBAL_EXECUTOR_THREADS: Lazy<()> = Lazy::new(init);
 static GLOBAL_EXECUTOR_THREADS_NUMBER: Mutex<usize> = Mutex::new(0);
 // The expected number of threads (excluding the one that are shutting down)
 static GLOBAL_EXECUTOR_EXPECTED_THREADS_NUMBER: Mutex<usize> = Mutex::new(0);
-// The id of the next thread
-static GLOBAL_EXECUTOR_NEXT_THREAD: AtomicUsize = AtomicUsize::new(1);
 
 static GLOBAL_EXECUTOR: Executor<'_> = Executor::new();
 
@@ -149,7 +147,7 @@ pub struct GlobalExecutorConfig {
     /// The maximum number of threads to spawn.
     max_threads: Option<usize>,
     /// The name to us fo the threads.
-    thread_name_fn: Option<Box<dyn Fn(usize) -> String + Send + Sync>>,
+    thread_name_fn: Option<Box<dyn Fn() -> String + Send + Sync>>,
 }
 
 impl fmt::Debug for GlobalExecutorConfig {
@@ -184,7 +182,7 @@ impl GlobalExecutorConfig {
     /// Use the specified prefix to name the threads.
     pub fn with_thread_name_fn(
         mut self,
-        thread_name_fn: impl Fn(usize) -> String + Send + Sync + 'static,
+        thread_name_fn: impl Fn() -> String + Send + Sync + 'static,
     ) -> Self {
         self.thread_name_fn = Some(Box::new(thread_name_fn));
         self
@@ -201,9 +199,15 @@ impl GlobalExecutorConfig {
         Config {
             min_threads,
             max_threads,
-            thread_name_fn: self
-                .thread_name_fn
-                .unwrap_or_else(|| Box::new(|n| format!("async-global-executor-{}", n))),
+            thread_name_fn: self.thread_name_fn.unwrap_or_else(|| {
+                Box::new(|| {
+                    static GLOBAL_EXECUTOR_NEXT_THREAD: AtomicUsize = AtomicUsize::new(1);
+                    format!(
+                        "async-global-executor-{}",
+                        GLOBAL_EXECUTOR_NEXT_THREAD.fetch_add(1, Ordering::SeqCst)
+                    )
+                })
+            }),
         }
     }
 }
@@ -212,7 +216,7 @@ impl GlobalExecutorConfig {
 struct Config {
     min_threads: usize,
     max_threads: usize,
-    thread_name_fn: Box<dyn Fn(usize) -> String + Send + Sync>,
+    thread_name_fn: Box<dyn Fn() -> String + Send + Sync>,
 }
 
 impl Default for Config {
@@ -234,7 +238,7 @@ impl Default for Config {
 ///         .with_env_var("NUMBER_OF_THREADS")
 ///         .with_min_threads(4)
 ///         .with_max_threads(6)
-///         .with_thread_name_fn(Box::new(|n| format!("executor-{}", n)))
+///         .with_thread_name_fn(Box::new(|| "worker".to_string()))
 /// );
 /// ```
 pub fn init_with_config(config: GlobalExecutorConfig) {
@@ -285,9 +289,7 @@ pub async fn spawn_more_threads(count: usize) -> io::Result<usize> {
     let count = count.min(config.max_threads - *threads_number);
     for _ in 0..count {
         thread::Builder::new()
-            .name((config.thread_name_fn)(
-                GLOBAL_EXECUTOR_NEXT_THREAD.fetch_add(1, Ordering::SeqCst),
-            ))
+            .name((config.thread_name_fn)())
             .spawn(thread_main_loop)?;
         *threads_number += 1;
         *expected_threads_number += 1;
