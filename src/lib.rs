@@ -51,14 +51,19 @@ pub use async_executor::Task;
 static GLOBAL_EXECUTOR_CONFIG: OnceCell<Config> = OnceCell::new();
 static GLOBAL_EXECUTOR_THREADS: Lazy<()> = Lazy::new(init);
 
+// The current number of threads (some might be shutting down and not in the pool anymore)
 static GLOBAL_EXECUTOR_THREADS_NUMBER: Mutex<usize> = Mutex::new(0);
+// The expected number of threads (excluding the one that are shutting down)
 static GLOBAL_EXECUTOR_EXPECTED_THREADS_NUMBER: Mutex<usize> = Mutex::new(0);
+// The id of the next thread
 static GLOBAL_EXECUTOR_NEXT_THREAD: AtomicUsize = AtomicUsize::new(1);
 
 static GLOBAL_EXECUTOR: Executor<'_> = Executor::new();
 
 thread_local! {
     static LOCAL_EXECUTOR: LocalExecutor<'static> = LocalExecutor::new();
+    // Used to shutdown a thread when we receive a message from the Sender.
+    // We send an ack using to the Receiver once we're finished shutting down.
     static THREAD_SHUTDOWN: OnceCell<(Sender<()>, Receiver<()>)> = OnceCell::new();
 }
 
@@ -203,6 +208,7 @@ impl GlobalExecutorConfig {
     }
 }
 
+// The actual configuration, computed from the given GlobalExecutorConfig
 struct Config {
     min_threads: usize,
     max_threads: usize,
@@ -264,12 +270,16 @@ pub fn init() {
 /// async_global_executor::spawn_more_threads(2);
 /// ```
 pub async fn spawn_more_threads(count: usize) -> io::Result<()> {
+    // Get the current configuration, or initialize the thread pool.
     let config = GLOBAL_EXECUTOR_CONFIG.get().unwrap_or_else(|| {
         Lazy::force(&GLOBAL_EXECUTOR_THREADS);
         GLOBAL_EXECUTOR_CONFIG.get().unwrap()
     });
+    // How many threads do we have (including shutting down)
     let mut threads_number = GLOBAL_EXECUTOR_THREADS_NUMBER.lock().await;
+    // How many threads are we supposed to have (when all shutdowns are complete)
     let mut expected_threads_number = GLOBAL_EXECUTOR_EXPECTED_THREADS_NUMBER.lock().await;
+    // Ensure we don't exceed configured max threads (including shutting down)
     let count = count.min(config.max_threads - *threads_number);
     for _ in 0..count {
         thread::Builder::new()
@@ -322,7 +332,9 @@ mod reactor {
 }
 
 fn thread_main_loop() {
+    // This will be used to ask for shutdown.
     let (s, r) = async_channel::bounded(1);
+    // This wil be used to ack once shutdown is complete.
     let (s_ack, r_ack) = async_channel::bounded(1);
     THREAD_SHUTDOWN.with(|thread_shutdown| drop(thread_shutdown.set((s, r_ack))));
 
@@ -330,7 +342,10 @@ fn thread_main_loop() {
         let _ = std::panic::catch_unwind(|| {
             LOCAL_EXECUTOR.with(|executor| {
                 let shutdown = async {
+                    // Wait until we're asked to shutdown.
                     let _ = r.recv().await;
+                    // FIXME: wait for spawned tasks completion
+                    // Ack that we're done shutting down.
                     let _ = s_ack.send(()).await;
                 };
                 let local = executor.run(shutdown);
@@ -346,14 +361,19 @@ async fn current_threads_number() -> usize {
 }
 
 async fn stop_current_executor_thread() {
+    // How many threads are we supposed to have (when all shutdowns are complete)
     let mut expected_threads_number = GLOBAL_EXECUTOR_EXPECTED_THREADS_NUMBER.lock().await;
+    // Ensure we don't go below the configured min_threads (ignoring shutting down)
     if *expected_threads_number > GLOBAL_EXECUTOR_CONFIG.get().unwrap().min_threads {
         let (s, r_ack) =
             THREAD_SHUTDOWN.with(|thread_shutdown| thread_shutdown.get().unwrap().clone());
         let _ = s.send(()).await;
+        // We now expect to have one less thread (this one is shutting down)
         *expected_threads_number -= 1;
+        // Unlock the Mutex
         drop(expected_threads_number);
         let _ = r_ack.recv().await;
+        // This thread is done shutting down
         *GLOBAL_EXECUTOR_THREADS_NUMBER.lock().await -= 1;
     }
 }
