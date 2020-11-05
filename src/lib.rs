@@ -264,12 +264,14 @@ pub fn init() {
 
 /// Spawn more executor threads, up to configured max value.
 ///
+/// Returns how many threads we spawned.
+///
 /// # Examples
 ///
 /// ```
 /// async_global_executor::spawn_more_threads(2);
 /// ```
-pub async fn spawn_more_threads(count: usize) -> io::Result<()> {
+pub async fn spawn_more_threads(count: usize) -> io::Result<usize> {
     // Get the current configuration, or initialize the thread pool.
     let config = GLOBAL_EXECUTOR_CONFIG.get().unwrap_or_else(|| {
         Lazy::force(&GLOBAL_EXECUTOR_THREADS);
@@ -290,28 +292,32 @@ pub async fn spawn_more_threads(count: usize) -> io::Result<()> {
         *threads_number += 1;
         *expected_threads_number += 1;
     }
-    Ok(())
+    Ok(count)
 }
 
 /// Stop one of the executor threads, down to configured min value
+///
+/// Returns whether a thread has been stopped.
 ///
 /// # Examples
 ///
 /// ```
 /// async_global_executor::stop_thread();
 /// ```
-pub fn stop_thread() -> Task<()> {
+pub fn stop_thread() -> Task<bool> {
     spawn(stop_current_executor_thread())
 }
 
 /// Stop the current executor thread, if we exceed the configured min value
+///
+/// Returns whether the thread has been stopped.
 ///
 /// # Examples
 ///
 /// ```
 /// async_global_executor::stop_current_thread();
 /// ```
-pub fn stop_current_thread() -> Task<()> {
+pub fn stop_current_thread() -> Task<bool> {
     spawn_local(stop_current_executor_thread())
 }
 
@@ -360,7 +366,7 @@ async fn current_threads_number() -> usize {
     *GLOBAL_EXECUTOR_THREADS_NUMBER.lock().await
 }
 
-async fn stop_current_executor_thread() {
+async fn stop_current_executor_thread() -> bool {
     // How many threads are we supposed to have (when all shutdowns are complete)
     let mut expected_threads_number = GLOBAL_EXECUTOR_EXPECTED_THREADS_NUMBER.lock().await;
     // Ensure we don't go below the configured min_threads (ignoring shutting down)
@@ -375,6 +381,9 @@ async fn stop_current_executor_thread() {
         let _ = r_ack.recv().await;
         // This thread is done shutting down
         *GLOBAL_EXECUTOR_THREADS_NUMBER.lock().await -= 1;
+        true
+    } else {
+        false
     }
 }
 
