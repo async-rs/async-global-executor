@@ -352,7 +352,10 @@ fn thread_main_loop() {
                 let shutdown = async {
                     // Wait until we're asked to shutdown.
                     let _ = r.recv().await;
-                    // FIXME: wait for spawned tasks completion
+                    // Wait for spawned tasks completion
+                    while !executor.is_empty() {
+                        executor.tick().await;
+                    }
                     // Ack that we're done shutting down.
                     let _ = s_ack.send(()).await;
                 };
