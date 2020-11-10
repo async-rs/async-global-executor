@@ -3,7 +3,11 @@ use async_executor::Task;
 use async_mutex::Mutex;
 use futures_lite::future;
 use once_cell::sync::OnceCell;
-use std::{io, thread};
+use std::{
+    io,
+    sync::atomic::{AtomicBool, Ordering},
+    thread,
+};
 
 // The current number of threads (some might be shutting down and not in the pool anymore)
 static GLOBAL_EXECUTOR_THREADS_NUMBER: Mutex<usize> = Mutex::new(0);
@@ -76,29 +80,53 @@ pub fn stop_current_thread() -> Task<bool> {
 }
 
 fn thread_main_loop() {
+    static LOOP: AtomicBool = AtomicBool::new(true);
+
     // This will be used to ask for shutdown.
     let (s, r) = async_channel::bounded(1);
     // This wil be used to ack once shutdown is complete.
     let (s_ack, r_ack) = async_channel::bounded(1);
     THREAD_SHUTDOWN.with(|thread_shutdown| drop(thread_shutdown.set((s, r_ack))));
 
-    loop {
+    // Main loop
+    while LOOP.load(Ordering::SeqCst) {
         let _ = std::panic::catch_unwind(|| {
             crate::executor::LOCAL_EXECUTOR.with(|executor| {
                 let shutdown = async {
                     // Wait until we're asked to shutdown.
                     let _ = r.recv().await;
-                    // Wait for spawned tasks completion
-                    while !executor.is_empty() {
-                        executor.tick().await;
-                    }
-                    // Ack that we're done shutting down.
-                    let _ = s_ack.send(()).await;
+                    // Stop the loop
+                    LOOP.store(false, Ordering::SeqCst);
                 };
                 let local = executor.run(shutdown);
                 let global = crate::executor::GLOBAL_EXECUTOR.run(future::pending::<()>());
                 crate::reactor::block_on(future::or(local, global));
-            })
+            });
+        });
+    }
+
+    wait_for_local_executor_completion();
+
+    // Ack that we're done shutting down.
+    crate::reactor::block_on(async {
+        let _ = s_ack.send(()).await;
+    });
+}
+
+fn wait_for_local_executor_completion() {
+    static LOOP: AtomicBool = AtomicBool::new(true);
+
+    while LOOP.load(Ordering::SeqCst) {
+        let _ = std::panic::catch_unwind(|| {
+            crate::executor::LOCAL_EXECUTOR.with(|executor| {
+                crate::reactor::block_on(async {
+                    // Wait for spawned tasks completion
+                    while !executor.is_empty() {
+                        executor.tick().await;
+                    }
+                    LOOP.store(false, Ordering::SeqCst);
+                });
+            });
         });
     }
 }
