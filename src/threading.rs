@@ -3,11 +3,7 @@ use async_executor::Task;
 use async_mutex::Mutex;
 use futures_lite::future;
 use once_cell::sync::OnceCell;
-use std::{
-    io,
-    sync::atomic::{AtomicBool, Ordering},
-    thread,
-};
+use std::{io, thread};
 
 // The current number of threads (some might be shutting down and not in the pool anymore)
 static GLOBAL_EXECUTOR_THREADS_NUMBER: Mutex<usize> = Mutex::new(0);
@@ -80,8 +76,6 @@ pub fn stop_current_thread() -> Task<bool> {
 }
 
 fn thread_main_loop() {
-    static LOOP: AtomicBool = AtomicBool::new(true);
-
     // This will be used to ask for shutdown.
     let (s, r) = async_channel::bounded(1);
     // This wil be used to ack once shutdown is complete.
@@ -89,20 +83,22 @@ fn thread_main_loop() {
     THREAD_SHUTDOWN.with(|thread_shutdown| drop(thread_shutdown.set((s, r_ack))));
 
     // Main loop
-    while LOOP.load(Ordering::SeqCst) {
-        let _ = std::panic::catch_unwind(|| {
+    loop {
+        #[allow(clippy::blocks_in_if_conditions)]
+        if std::panic::catch_unwind(|| {
             crate::executor::LOCAL_EXECUTOR.with(|executor| {
-                let shutdown = async {
+                let local = executor.run(async {
                     // Wait until we're asked to shutdown.
                     let _ = r.recv().await;
-                    // Stop the loop
-                    LOOP.store(false, Ordering::SeqCst);
-                };
-                let local = executor.run(shutdown);
+                });
                 let global = crate::executor::GLOBAL_EXECUTOR.run(future::pending::<()>());
                 crate::reactor::block_on(future::or(local, global));
             });
-        });
+        })
+        .is_ok()
+        {
+            break;
+        }
     }
 
     wait_for_local_executor_completion();
@@ -114,20 +110,22 @@ fn thread_main_loop() {
 }
 
 fn wait_for_local_executor_completion() {
-    static LOOP: AtomicBool = AtomicBool::new(true);
-
-    while LOOP.load(Ordering::SeqCst) {
-        let _ = std::panic::catch_unwind(|| {
+    loop {
+        #[allow(clippy::blocks_in_if_conditions)]
+        if std::panic::catch_unwind(|| {
             crate::executor::LOCAL_EXECUTOR.with(|executor| {
                 crate::reactor::block_on(async {
                     // Wait for spawned tasks completion
                     while !executor.is_empty() {
                         executor.tick().await;
                     }
-                    LOOP.store(false, Ordering::SeqCst);
                 });
             });
-        });
+        })
+        .is_ok()
+        {
+            break;
+        }
     }
 }
 
