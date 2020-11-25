@@ -33,7 +33,7 @@ doc_comment::doctest!("../README.md");
 
 pub use async_executor::Task;
 pub use config::GlobalExecutorConfig;
-pub use executor::{block_on, spawn, spawn_local, spawn_blocking};
+pub use executor::{block_on, spawn, spawn_blocking, spawn_local};
 pub use init::{init, init_with_config};
 pub use threading::{spawn_more_threads, stop_current_thread, stop_thread};
 
