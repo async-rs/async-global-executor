@@ -31,16 +31,17 @@
 #[cfg(doctest)]
 doc_comment::doctest!("../README.md");
 
-pub use async_executor::Task;
 pub use config::GlobalExecutorConfig;
 pub use executor::{block_on, spawn, spawn_local};
 pub use init::{init, init_with_config};
+pub use task::Task;
 pub use threading::{spawn_more_threads, stop_current_thread, stop_thread};
 
 mod config;
 mod executor;
 mod init;
 mod reactor;
+mod task;
 mod threading;
 
 #[cfg(feature = "tokio02")]

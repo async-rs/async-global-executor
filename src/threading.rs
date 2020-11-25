@@ -1,5 +1,5 @@
+use crate::Task;
 use async_channel::{Receiver, Sender};
-use async_executor::Task;
 use async_mutex::Mutex;
 use futures_lite::future;
 use once_cell::sync::OnceCell;

@@ -44,4 +44,5 @@ default-features = false
 features = ["rt", "rt-multi-thread"]
 
 [dev-dependencies]
+async-io = "^1.2"
 doc-comment = "^0.3"
