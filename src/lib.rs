@@ -37,12 +37,17 @@ pub use executor::{block_on, spawn, spawn_blocking, spawn_local};
 pub use init::{init, init_with_config};
 pub use threading::{spawn_more_threads, stop_current_thread, stop_thread};
 
+#[cfg(feature = "executor-trait")]
+pub use executor_trait::AsyncGlobalExecutor;
+
 mod config;
 mod executor;
 mod init;
 mod reactor;
 mod threading;
 
+#[cfg(feature = "executor-trait")]
+mod executor_trait;
 #[cfg(feature = "tokio02")]
 mod tokio02;
 #[cfg(feature = "tokio03")]
