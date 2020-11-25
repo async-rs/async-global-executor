@@ -75,3 +75,28 @@ pub fn spawn<F: Future<Output = T> + Send + 'static, T: Send + 'static>(future: 
 pub fn spawn_local<F: Future<Output = T> + 'static, T: 'static>(future: F) -> Task<T> {
     LOCAL_EXECUTOR.with(|executor| executor.spawn(future))
 }
+
+/// Runs blocking code on a thread pool.
+///
+/// # Examples
+///
+/// Read the contents of a file:
+///
+/// ```no_run
+/// # async_global_executor::block_on(async {
+/// let contents = async_global_executor::spawn_blocking(|| std::fs::read_to_string("file.txt")).await?;
+/// # std::io::Result::Ok(()) });
+/// ```
+///
+/// Spawn a process:
+///
+/// ```no_run
+/// use std::process::Command;
+///
+/// # async_global_executor::block_on(async {
+/// let out = async_global_executor::spawn_blocking(|| Command::new("dir").output()).await?;
+/// # std::io::Result::Ok(()) });
+/// ```
+pub async fn spawn_blocking<F: FnOnce() -> T + Send + 'static, T: Send + 'static>(f: F) -> T {
+    blocking::unblock(f).await
+}
