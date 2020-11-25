@@ -47,7 +47,7 @@ pub fn block_on<F: Future<Output = T>, T>(future: F) -> T {
 /// ```
 pub fn spawn<F: Future<Output = T> + Send + 'static, T: Send + 'static>(future: F) -> Task<T> {
     crate::init();
-    GLOBAL_EXECUTOR.spawn(future).into()
+    GLOBAL_EXECUTOR.spawn(future)
 }
 
 /// Spawns a task onto the local executor.
@@ -73,7 +73,5 @@ pub fn spawn<F: Future<Output = T> + Send + 'static, T: Send + 'static>(future: 
 /// });
 /// ```
 pub fn spawn_local<F: Future<Output = T> + 'static, T: 'static>(future: F) -> Task<T> {
-    LOCAL_EXECUTOR
-        .with(|executor| executor.spawn(future))
-        .into()
+    LOCAL_EXECUTOR.with(|executor| executor.spawn(future))
 }
