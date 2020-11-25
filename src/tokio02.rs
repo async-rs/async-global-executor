@@ -6,9 +6,7 @@ pub(crate) fn enter<F: FnOnce() -> R, R>(f: F) -> R {
 }
 
 static RUNTIME: Lazy<tokio::runtime::Handle> = Lazy::new(|| {
-    if let Ok(handle) = tokio::runtime::Handle::try_current() {
-        handle.clone()
-    } else {
+    tokio::runtime::Handle::try_current().unwrap_or_else(|_| {
         let mut rt = tokio::runtime::Runtime::new().expect("failed to build tokio02 runtime");
         let handle = rt.handle().clone();
         std::thread::Builder::new()
@@ -18,7 +16,7 @@ static RUNTIME: Lazy<tokio::runtime::Handle> = Lazy::new(|| {
             })
             .expect("failed to spawn tokio02 driver thread");
         handle
-    }
+    })
 });
 
 #[cfg(test)]
