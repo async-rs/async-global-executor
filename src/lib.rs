@@ -43,6 +43,8 @@ mod init;
 mod reactor;
 mod threading;
 
+#[cfg(feature = "tokio")]
+mod tokio;
 #[cfg(feature = "tokio02")]
 mod tokio02;
 #[cfg(feature = "tokio03")]
