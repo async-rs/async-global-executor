@@ -1,3 +1,9 @@
+# Version 2.0.0
+
+- add tokio 1.0 integration
+- rework configuration
+- add a way to update the number of threads at runtime within configured bounds
+
 # Version 1.4.3
 
 - switch to multi threaded tokio schedulers when enabled
