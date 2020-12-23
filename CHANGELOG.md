@@ -1,3 +1,7 @@
+# Version 2.0.1
+
+- fix build without default features
+
 # Version 2.0.0
 
 - add tokio 1.0 integration
