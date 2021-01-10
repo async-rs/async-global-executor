@@ -15,7 +15,7 @@ pub struct GlobalExecutorConfig {
     min_threads: Option<usize>,
     /// The maximum number of threads to spawn.
     max_threads: Option<usize>,
-    /// The name to us fo the threads.
+    /// The name to us of the threads.
     thread_name_fn: Option<Box<dyn Fn() -> String + Send + Sync>>,
 }
 
