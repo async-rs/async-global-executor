@@ -15,7 +15,7 @@ pub struct GlobalExecutorConfig {
     min_threads: Option<usize>,
     /// The maximum number of threads to spawn.
     max_threads: Option<usize>,
-    /// The name to us fo the threads.
+    /// The closure function used to get the name of the thread. The name can be used for identification in panic messages.
     thread_name_fn: Option<Box<dyn Fn() -> String + Send + Sync>>,
 }
 
