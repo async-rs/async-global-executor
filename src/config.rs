@@ -42,7 +42,9 @@ impl GlobalExecutorConfig {
         self
     }
 
-    /// Use the specified value as the maximum number of threads.
+    /// Use the specified value as the maximum number of threads for async tasks.
+    /// To limit the maximum number of threads for blocking tasks, please use the
+    /// `BLOCKING_MAX_THREADS` environment variable.
     pub fn with_max_threads(mut self, max_threads: usize) -> Self {
         self.max_threads = Some(max_threads);
         self
