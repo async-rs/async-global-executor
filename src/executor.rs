@@ -97,6 +97,6 @@ pub fn spawn_local<F: Future<Output = T> + 'static, T: 'static>(future: F) -> Ta
 /// let out = async_global_executor::spawn_blocking(|| Command::new("dir").output()).await?;
 /// # std::io::Result::Ok(()) });
 /// ```
-pub async fn spawn_blocking<F: FnOnce() -> T + Send + 'static, T: Send + 'static>(f: F) -> T {
-    blocking::unblock(f).await
+pub fn spawn_blocking<F: FnOnce() -> T + Send + 'static, T: Send + 'static>(f: F) -> Task<T> {
+    blocking::unblock(f)
 }
