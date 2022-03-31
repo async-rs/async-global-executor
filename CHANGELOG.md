@@ -1,3 +1,15 @@
+# Version 2.0.4
+
+- Return concrete type Task from `spawn_blocking`
+
+# Version 2.0.3
+
+- Documentation updates
+
+# Version 2.0.2
+
+- Documentation updates
+
 # Version 2.0.1
 
 - fix build without default features
