@@ -1,3 +1,10 @@
+# Version 2.1.0
+
+- Switch from async-mutex to async-lock
+- Switch from num-cpus to Use `std::thread::available_parallelism`
+- Update MSRV to 1.59
+- Update to edition 2021
+
 # Version 2.0.4
 
 - Return concrete type Task from `spawn_blocking`
