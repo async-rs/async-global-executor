@@ -1,6 +1,6 @@
 use crate::Task;
 use async_channel::{Receiver, Sender};
-use async_mutex::Mutex;
+use async_lock::Mutex;
 use futures_lite::future;
 use once_cell::sync::OnceCell;
 use std::{io, thread};
