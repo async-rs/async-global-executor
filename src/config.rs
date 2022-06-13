@@ -64,7 +64,7 @@ impl GlobalExecutorConfig {
             .ok()
             .and_then(|threads| threads.parse().ok())
             .or(self.min_threads)
-            .unwrap_or_else(|| std::thread::available_parallelism().map_or(1, usize::from))
+            .unwrap_or_else(num_cpus::get)
             .max(1);
         let max_threads = self.max_threads.unwrap_or(min_threads * 4).max(min_threads);
         Config {
