@@ -1,3 +1,7 @@
+# Version 2.2.0
+
+- Revert back to edition 2018 and MSRV 1.49
+
 # Version 2.1.0
 
 - Switch from async-mutex to async-lock
