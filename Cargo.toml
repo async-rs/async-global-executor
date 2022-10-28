@@ -23,7 +23,7 @@ tokio03 = ["tokio03-crate"]
 async-channel = "^1.5"
 async-executor = "^1.4"
 async-lock = "^2.5"
-blocking = "^1.0"
+blocking = "^1.2"
 futures-lite = "^1.0"
 once_cell = "^1.4"
 
