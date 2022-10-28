@@ -1,3 +1,7 @@
+# Version 2.3.1
+
+- Update blocking dependency
+
 # Version 2.3.0
 
 - Switch back to edition 2021 and MSRV 1.59, dropping num-cups dependency
