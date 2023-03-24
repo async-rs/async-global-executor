@@ -3,6 +3,8 @@ name: Build and test
 on:
   push:
   pull_request:
+  schedule:
+    - cron: "0 12 * * 1"
 
 jobs:
   build_and_test:
