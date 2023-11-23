@@ -1,3 +1,7 @@
+# Version 2.4.0
+
+- Update to async-io 2.0
+
 # Version 2.3.1
 
 - Update blocking dependency
