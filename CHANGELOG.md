@@ -1,3 +1,7 @@
+# Version 2.4.1
+
+- Update to events-listener 4.0
+
 # Version 2.4.0
 
 - Update to async-io 2.0
