@@ -21,7 +21,7 @@ tokio03 = ["tokio03-crate"]
 
 [dependencies]
 async-channel = "^2.1.1"
-async-executor = "^1.8"
+async-executor = { version = "^1.12", features = ["static"] }
 async-lock = "^3.2"
 blocking = "^1.5"
 futures-lite = "^2.0"

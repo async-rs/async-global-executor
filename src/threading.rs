@@ -13,7 +13,7 @@ static GLOBAL_EXECUTOR_EXPECTED_THREADS_NUMBER: Mutex<usize> = Mutex::new(0);
 thread_local! {
     // Used to shutdown a thread when we receive a message from the Sender.
     // We send an ack using to the Receiver once we're finished shutting down.
-    static THREAD_SHUTDOWN: OnceCell<(Sender<()>, Receiver<()>)> = OnceCell::new();
+    static THREAD_SHUTDOWN: OnceCell<(Sender<()>, Receiver<()>)> = const { OnceCell::new() };
 }
 
 /// Spawn more executor threads, up to configured max value.
