@@ -5,7 +5,7 @@ use std::future::Future;
 pub(crate) static GLOBAL_EXECUTOR: Executor<'_> = Executor::new();
 
 thread_local! {
-    pub(crate) static LOCAL_EXECUTOR: LocalExecutor<'static> = LocalExecutor::new();
+    pub(crate) static LOCAL_EXECUTOR: LocalExecutor<'static> = const { LocalExecutor::new() };
 }
 
 /// Runs the global and the local executor on the current thread
