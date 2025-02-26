@@ -1,3 +1,10 @@
+# Version 3.1.0
+
+- Fix tokio feature
+- Drop `once_cell` dependency
+- Use `async_executor::StaticExecutor`
+- Update MSRV to 1.80
+
 # Version 3.0.2
 
 - README update
