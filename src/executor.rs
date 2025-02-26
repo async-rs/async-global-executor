@@ -1,8 +1,8 @@
 use crate::Task;
-use async_executor::{Executor, LocalExecutor};
+use async_executor::{LocalExecutor, StaticExecutor};
 use std::future::Future;
 
-pub(crate) static GLOBAL_EXECUTOR: Executor<'_> = Executor::new();
+pub(crate) static GLOBAL_EXECUTOR: StaticExecutor = StaticExecutor::new();
 
 thread_local! {
     pub(crate) static LOCAL_EXECUTOR: LocalExecutor<'static> = const { LocalExecutor::new() };
