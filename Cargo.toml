@@ -11,7 +11,7 @@ documentation = "https://docs.rs/async-global-executor"
 keywords = ["async", "await", "future", "executor"]
 categories = ["asynchronous", "concurrency"]
 readme = "README.md"
-rust-version = "1.70"
+rust-version = "1.80"
 
 [features]
 default = ["async-io"]

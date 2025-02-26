@@ -1,6 +1,9 @@
 use std::{
     fmt,
-    sync::{atomic::{AtomicUsize, Ordering}, OnceLock},
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        OnceLock,
+    },
 };
 
 pub(crate) static GLOBAL_EXECUTOR_CONFIG: OnceLock<Config> = OnceLock::new();
