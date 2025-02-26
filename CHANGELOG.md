@@ -1,3 +1,7 @@
+# Version 3.0.0
+
+- Drop support for tokio < 1.0
+
 # Version 2.4.1
 
 - Update to events-listener 4.0
