@@ -12,10 +12,6 @@ A global executor built on top of async-executor and async-io
   `futures_lite::future::block_on` internally. this is preferred if your application also uses `async-io`.
 * `tokio`: if enabled, `async-global-executor` will ensure that all tasks that you will spawn run in the context of a
   tokio 1.0 runtime, spawning a new one if required.
-* `tokio03`: if enabled, `async-global-executor` will ensure that all tasks that you will spawn run in the context of a
-  tokio 0.3 runtime, spawning a new one if required.
-* `tokio02`: if enabled, `async-global-executor` will ensure that all tasks that you will spawn run in the context of a
-  tokio 0.2 runtime, spawning a new one if required.
 
 # Examples
 
