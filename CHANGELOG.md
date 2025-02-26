@@ -1,3 +1,7 @@
+# Version 3.0.1
+
+- README update
+
 # Version 3.0.0
 
 - Drop support for tokio < 1.0
