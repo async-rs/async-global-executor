@@ -1,10 +1,9 @@
-use once_cell::sync::OnceCell;
 use std::{
     fmt,
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::{atomic::{AtomicUsize, Ordering}, OnceLock},
 };
 
-pub(crate) static GLOBAL_EXECUTOR_CONFIG: OnceCell<Config> = OnceCell::new();
+pub(crate) static GLOBAL_EXECUTOR_CONFIG: OnceLock<Config> = OnceLock::new();
 
 /// Configuration to init the thread pool for the multi-threaded global executor.
 #[derive(Default)]

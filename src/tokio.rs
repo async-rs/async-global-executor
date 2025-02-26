@@ -1,10 +1,10 @@
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 pub(crate) fn enter() -> tokio::runtime::EnterGuard<'static> {
     RUNTIME.enter()
 }
 
-static RUNTIME: Lazy<tokio::runtime::Handle> = Lazy::new(|| {
+static RUNTIME: LazyLock<tokio::runtime::Handle> = LazyLock::new(|| {
     tokio::runtime::Handle::try_current().unwrap_or_else(|_| {
         let rt = tokio::runtime::Runtime::new().expect("failed to build tokio runtime");
         let handle = rt.handle().clone();

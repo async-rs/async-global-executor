@@ -11,7 +11,7 @@ documentation = "https://docs.rs/async-global-executor"
 keywords = ["async", "await", "future", "executor"]
 categories = ["asynchronous", "concurrency"]
 readme = "README.md"
-rust-version = "1.60"
+rust-version = "1.70"
 
 [features]
 default = ["async-io"]
@@ -23,7 +23,6 @@ async-channel = "^2.1.1"
 async-lock = "^3.2"
 blocking = "^1.5"
 futures-lite = "^2.0"
-once_cell = "^1.4"
 
 [dependencies.async-executor]
 version = "^1.12"

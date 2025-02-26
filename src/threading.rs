@@ -2,8 +2,7 @@ use crate::Task;
 use async_channel::{Receiver, Sender};
 use async_lock::Mutex;
 use futures_lite::future;
-use once_cell::sync::OnceCell;
-use std::{io, thread};
+use std::{cell::OnceCell, io, thread};
 
 // The current number of threads (some might be shutting down and not in the pool anymore)
 static GLOBAL_EXECUTOR_THREADS_NUMBER: Mutex<usize> = Mutex::new(0);
