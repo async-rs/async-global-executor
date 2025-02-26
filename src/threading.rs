@@ -13,7 +13,7 @@ static GLOBAL_EXECUTOR_EXPECTED_THREADS_NUMBER: Mutex<usize> = Mutex::new(0);
 thread_local! {
     // Used to shutdown a thread when we receive a message from the Sender.
     // We send an ack using to the Receiver once we're finished shutting down.
-    static THREAD_SHUTDOWN: OnceCell<(Sender<()>, Receiver<()>)> = OnceCell::new();
+    static THREAD_SHUTDOWN: OnceCell<(Sender<()>, Receiver<()>)> = const { OnceCell::new() };
 }
 
 /// Spawn more executor threads, up to configured max value.
@@ -84,7 +84,7 @@ fn thread_main_loop() {
 
     // Main loop
     loop {
-        #[allow(clippy::blocks_in_if_conditions)]
+        #[allow(clippy::blocks_in_conditions)]
         if std::panic::catch_unwind(|| {
             crate::executor::LOCAL_EXECUTOR.with(|executor| {
                 let local = executor.run(async {
@@ -111,7 +111,7 @@ fn thread_main_loop() {
 
 fn wait_for_local_executor_completion() {
     loop {
-        #[allow(clippy::blocks_in_if_conditions)]
+        #[allow(clippy::blocks_in_conditions)]
         if std::panic::catch_unwind(|| {
             crate::executor::LOCAL_EXECUTOR.with(|executor| {
                 crate::reactor::block_on(async {
