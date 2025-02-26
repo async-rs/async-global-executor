@@ -1,5 +1,4 @@
 use once_cell::sync::Lazy;
-use tokio_crate as tokio;
 
 pub(crate) fn enter() -> tokio::runtime::EnterGuard<'static> {
     RUNTIME.enter()
@@ -21,8 +20,6 @@ static RUNTIME: Lazy<tokio::runtime::Handle> = Lazy::new(|| {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-
     async fn compute() -> u8 {
         tokio::spawn(async { 1 + 2 }).await.unwrap()
     }
