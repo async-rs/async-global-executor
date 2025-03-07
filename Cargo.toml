@@ -3,7 +3,7 @@ name = "async-global-executor"
 version = "3.1.0"
 authors = ["Marc-Antoine Perennou <Marc-Antoine@Perennou.com>"]
 description =  "A global executor built on top of async-executor and async-io"
-edition = "2021"
+edition = "2024"
 license = "Apache-2.0 OR MIT"
 repository = "https://github.com/Keruspe/async-global-executor"
 homepage = "https://github.com/Keruspe/async-global-executor"
@@ -11,7 +11,7 @@ documentation = "https://docs.rs/async-global-executor"
 keywords = ["async", "await", "future", "executor"]
 categories = ["asynchronous", "concurrency"]
 readme = "README.md"
-rust-version = "1.80"
+rust-version = "1.85"
 
 [features]
 default = ["async-io"]

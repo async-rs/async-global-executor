@@ -1,8 +1,8 @@
 use std::{
     fmt,
     sync::{
-        atomic::{AtomicUsize, Ordering},
         OnceLock,
+        atomic::{AtomicUsize, Ordering},
     },
 };
 
